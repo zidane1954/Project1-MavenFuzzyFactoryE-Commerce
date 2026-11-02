@@ -251,8 +251,7 @@ Overall, these recommendations show that data analysis can support many business
 The dashboard has two pages, with **Sales** and **Marketing** navigation buttons, **Year** and **Product Name** slicers, four KPI cards at the top, and four insight cards at the bottom. The design uses a navy, honey, and cream palette, with consistent product colors across all charts, a bear logo, and KPI icons.
 
 ### Sales & Product Performance
-
-![Dashboard Sales & Product Performance](images/dashboard_sales.png)
+![Dashboard Sales & Product Performance](<Dashboard Sales Preview.png>)
 
 - **KPIs:** Total Items Sold (40,025), Total Profit (US$1.216 million), Repurchase Customers (591), and Refund Rate (4.32%).
 - **Charts:**
@@ -264,7 +263,7 @@ The dashboard has two pages, with **Sales** and **Marketing** navigation buttons
 
 ### Marketing & Website Performance
 
-![Dashboard Marketing & Website Performance](images/dashboard_marketing.png)
+![Dashboard Marketing & Website Performance](<Dashboard Sales Marketing.png>)
 
 - **KPIs:** Conversion Rate, Revenue per Session, Average Order Value, and Returning Visitor Rate.
 - **Charts:**
