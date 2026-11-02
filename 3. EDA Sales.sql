@@ -1,0 +1,256 @@
+-- 1. Berapa Bnayak Product yang terjual ? 
+SELECT 
+    OI.PRODUCT_ID, P.PRODUCT_NAME, 
+    COUNT(OI.order_item_id) AS TOTAL_PENJUALAN_PER_ITEM 
+FROM ORDER_ITEMS OI
+JOIN PRODUCTS P
+	ON OI.PRODUCT_ID = P.PRODUCT_ID
+GROUP BY 
+    OI.PRODUCT_ID
+ORDER BY 
+    TOTAL_PENJUALAN_PER_ITEM DESC;
+
+-- 2. Keuntungan Dari Tiap Product 
+WITH UNTUNG AS (
+SELECT 
+    OI.PRODUCT_ID, P.PRODUCT_NAME, 
+    COUNT(OI.order_item_id) AS TOTAL_PENJUALAN_PER_ITEM, 
+    SUM(OI.PRICE_USD) AS PENDAPATAN_PRODUCT, 
+    SUM(OI.COGS_USD) AS COST_PRODUCT,
+    SUM(OI.PRICE_USD) -  SUM(OI.COGS_USD) AS NET_PROFIT
+FROM ORDER_ITEMS OI
+JOIN PRODUCTS P
+	ON OI.PRODUCT_ID = P.PRODUCT_ID
+GROUP BY 
+    OI.PRODUCT_ID
+ORDER BY 
+    NET_PROFIT DESC
+) 
+SELECT *, ROUND(NET_PROFIT/SUM(NET_PROFIT) OVER () * 100,2 ) AS PERSEN_UNTUNG
+FROM UNTUNG 
+GROUP BY PRODUCT_ID;
+
+
+-- 3. TREN PENJUALAN PRODUCT TIAP BULANNYA 
+
+SELECT 
+	YEAR(O.CREATED_AT) AS TAHUN,
+	MONTH(O.CREATED_AT) AS BULAN,
+    COUNT(CASE 
+    WHEN OI.PRODUCT_ID = 1
+	THEN OI.ORDER_ITEM_ID 
+    ELSE NULL END) AS PENJUALAN_PRODUCT_1,
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 2
+            THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_2, 
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 3
+            THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_3, 
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 4
+			THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_4 ,
+COUNT(order_item_id) AS TOTAL_SEMUA_PRODUCT
+FROM ORDER_ITEMS  OI
+JOIN ORDERS O 
+	ON OI.ORDER_ID = O.ORDER_ID
+GROUP BY TAHUN, BULAN
+ORDER BY TAHUN, BULAN; 
+
+
+-- 4. YANG PALING BANYAK DI REFUND APA
+SELECT I.PRODUCT_ID, COUNT(R. order_item_refund_id)
+FROM order_item_refunds R
+JOIN ORDER_ITEMS I
+	ON R.ORDER_ITEM_ID = I.ORDER_ITEM_ID
+GROUP BY I.PRODUCT_ID
+;
+
+
+-- 5. Perbandingan Product yang refund ama yang terjual 
+
+SELECT OI.order_id, OI.order_item_id, OI.product_id, OI.created_at,  R.order_item_refund_id, R.created_at, R.refund_amount_usd, 
+COUNT(order_item_refund_id) OVER (PARTITION BY product_id) AS JUMLAH_TOTAL_PENGEMBALIAN_PERITEM
+FROM order_item_refunds R
+RIGHT JOIN order_items OI
+	ON R.order_id = OI.order_id
+WHERE R.order_item_refund_id IS NOT NULL
+ORDER BY  product_id DESC, refund_amount_usd DESC 
+;
+
+
+WITH PENJUALAN AS (
+    SELECT
+        PRODUCT_ID,
+        COUNT(ORDER_ITEM_ID) AS TOTAL_PENJUALAN
+    FROM ORDER_ITEMS
+    GROUP BY PRODUCT_ID
+),
+REFUND AS (
+    SELECT
+        O.PRODUCT_ID,
+        COUNT(DISTINCT OI.ORDER_ITEM_ID) AS TOTAL_ITEM_REFUND,
+        SUM(OI.REFUND_AMOUNT_USD) AS TOTAL_NILAI_REFUND
+    FROM ORDER_ITEM_REFUNDS OI
+    JOIN ORDER_ITEMS O
+        ON OI.ORDER_ITEM_ID = O.ORDER_ITEM_ID
+    GROUP BY O.PRODUCT_ID
+)
+SELECT
+    P.PRODUCT_ID,
+    P.TOTAL_PENJUALAN,
+    COALESCE(R.TOTAL_ITEM_REFUND, 0) AS TOTAL_ITEM_REFUND,
+    COALESCE(R.TOTAL_NILAI_REFUND, 0) AS TOTAL_NILAI_REFUND,
+    ROUND(
+        COALESCE(R.TOTAL_ITEM_REFUND, 0) 
+        / P.TOTAL_PENJUALAN * 100,
+        2
+    ) AS PERSENTASE_REFUND
+FROM PENJUALAN P
+LEFT JOIN REFUND R
+    ON P.PRODUCT_ID = R.PRODUCT_ID
+ORDER BY PERSENTASE_REFUND DESC;
+
+
+
+
+
+-- 6. Cari yang melakukan repurchased, ada 591 ORANG YANG MELAKUKAN REPURCHASED DALAM WKATU YANG BERBEDA 
+WITH REPURCHASED AS 
+(
+SELECT *, 
+ROW_NUMBER() OVER(PARTITION BY USER_ID ORDER BY CREATED_AT) AS PEMBELIAN_KE, 
+COUNT(ORDER_ID) OVER(PARTITION BY USER_ID ) AS TOTAL_BELI
+FROM ORDERS
+)
+SELECT *
+FROM REPURCHASED 
+WHERE TOTAL_BELI > 1;
+
+-- 7. BERAPA BANYAK PELANGGAN YANG ORDER LEBIH DARI 2 ITEM 
+-- ini buakan repurchasing, tp emg sekali beli 2, total ada 7712 orang, 
+WITH PESANAN_BANYAK AS 
+(
+SELECT *, 
+ROW_NUMBER() OVER (partition by ORDER_ID) AS JUMLAH_PESANAN, 
+count(order_item_id) over (partition by order_id) as pemesanan_ke 
+FROM ORDER_ITEMS
+)
+SELECT count(distinct order_id)
+FROM PESANAN_BANYAK 
+WHERE pemesanan_ke > 1; 
+
+
+-- tambahan banyak order yang dilakukan per hari, per jam, dan per tanggal, perbulan juga
+
+-- perhari
+
+
+SELECT 
+	dayname(O.CREATED_AT) AS hari,
+    COUNT(CASE 
+    WHEN OI.PRODUCT_ID = 1
+	THEN OI.ORDER_ITEM_ID 
+    ELSE NULL END) AS PENJUALAN_PRODUCT_1,
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 2
+            THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_2, 
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 3
+            THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_3, 
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 4
+			THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_4 ,
+COUNT(order_item_id) AS TOTAL_SEMUA_PRODUCT
+FROM ORDER_ITEMS  OI
+JOIN ORDERS O 
+	ON OI.ORDER_ID = O.ORDER_ID
+GROUP BY hari
+ORDER BY total_semua_product
+; 
+
+-- tanggal 
+
+SELECT 
+	date_format(O.CREATED_AT, '%D') AS tanggal,
+    COUNT(CASE 
+    WHEN OI.PRODUCT_ID = 1
+	THEN OI.ORDER_ITEM_ID 
+    ELSE NULL END) AS PENJUALAN_PRODUCT_1,
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 2
+            THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_2, 
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 3
+            THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_3, 
+	COUNT(CASE 
+			WHEN OI.PRODUCT_ID = 4
+			THEN OI.ORDER_ITEM_ID
+            ELSE NULL 
+		  END) AS PENJUALAN_PRODUCT_4 ,
+COUNT(order_item_id) AS TOTAL_SEMUA_PRODUCT
+FROM ORDER_ITEMS  OI
+JOIN ORDERS O 
+	ON OI.ORDER_ID = O.ORDER_ID
+GROUP BY tanggal
+ORDER BY total_semua_product desc
+; 
+
+
+
+-- 15. rata rata pembeli mau mengeluarkan uang buat product
+SELECT COUNT(DISTINCT USER_ID) 
+FROM ORDERS ; 
+
+
+-- RATA-RATA PER PEMBELIAN 60
+SELECT 
+	AVG(price_usd) AS RATA_RATA_HARGA_YANG_MAU_DIKELUARKAN_ORANG
+FROM ORDERS;
+
+
+-- RATA-RATA PERORANGAN 61.16
+WITH PengeluaranPerUser AS (
+    SELECT 
+        user_id, 
+        SUM(price_usd) AS total_belanja_user,
+        COUNT(order_id) AS frekuensi_beli
+    FROM orders
+    GROUP BY user_id
+)
+SELECT 
+   ROUND(AVG(total_belanja_user),2) AS rata_rata_pengeluaran_per_pembeli
+FROM PengeluaranPerUser;
+
+-- 16. Revenue Persession
+SELECT 
+    -- Rumus Revenue per Session: Total Uang dibagi Total Kunjungan
+    ROUND(SUM(o.price_usd) / COUNT(ws.website_session_id),2) AS revenue_per_session,
+    -- Opsional: Menampilkan komponen aslinya
+    SUM(o.price_usd) AS total_pendapatan,
+    COUNT(ws.website_session_id) AS total_kunjungan
+FROM website_sessions_bersih ws
+LEFT JOIN orders o 
+    ON ws.website_session_id = o.website_session_id;
+
+
+
+
+
+
+ 
